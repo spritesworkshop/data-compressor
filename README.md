@@ -6,8 +6,8 @@ exact same thing but i changed how it worked and a couple things
 DEFLATE/Zlib module not created by me, [see the original asset here](https://create.roblox.com/store/asset/5649237524)
 
 ## How to use
-Either download the rbxm from the [Releases](https://github.com/EmK530/DCM/releases) section, or set it up yourself with the 4 source scripts.<br>
-DCM is the main script you will be requiring. If you are setting up manually,<br>the three other scripts should be children of the DCM module as demonstrated.<br>
+You have to set it up yourself with the 4 source scripts.<br>
+NetShrink is the main script you will be requiring. The three other scripts should be children of the DCM module as demonstrated.<br>
 <img src="https://i.imgur.com/GJjvz2y.png"><br>
 
 ## Initalizing DCM
@@ -33,14 +33,14 @@ local encoded = compressor:Encode(
 print("Successfully encoded to "..buffer.len(encoded).." bytes.")
 ```
 <br>
-<b>To reduce data usage, see the section "<a href="https://github.com/EmK530/DCM#Optimizing-data-usage">Optimizing data usage</a>"</b><br>
-<b>To optimize performance, see the section "<a href="https://github.com/EmK530/DCM#Optimizing-performance">Optimizing performance</a>"</b>
+<b>To reduce data usage, see the section "<a href="https://github.com//DCM#Optimizing-data-usage">Optimizing data usage</a>"</b><br>
+<b>To optimize performance, see the section "<a href="https://github.com//DCM#Optimizing-performance">Optimizing performance</a>"</b>
 
 ## Encrypting data
 Once you've ran `compressor:Encode()` and gotten your buffer, you can also choose to encrypt it using `compressor:Encrypt()`<br>
 This function takes two arguments, the buffer and a numeric key to use for encryption and it will return the encrypted buffer.<br>
 The encryption works by using the number as a seed to randomly XOR shift every single byte.<br>
-To decrypt you have two options, either use `compressor:Encrypt()` again with the same key, or see the section "[Decoding data](https://github.com/EmK530/DCM#Decoding-data)"
+To decrypt you have two options, either use `compressor:Encrypt()` again with the same key, or see the section "[Decoding data](https://github.com//DCM#Decoding-data)"
 
 ## Decoding data
 To decode data from a buffer, call the `compressor:Decode()` function.<br>
@@ -61,7 +61,7 @@ If `encoded` was encrypted, adding the key used during encoding as the third arg
 Compression is an expensive part of compressor:<br>
 If you need to perform a lot of encode/decode operations for cases like Multiplayer, it is recommended to disable compression.<br>
 To do this, you mainly want to set `compressor.Config.CompressMode` to 0 to not pass the output through EncodingService.<br>
-This increases the output size, so check the section "<a href="https://github.com/EmK530/DCM#Optimizing-data-usage">Optimizing data usage</a>" to find ways to counter that.
+This increases the output size, so check the section "<a href="https://github.com/spritesworkshop/data-compressor#Optimizing-data-usage">Optimizing data usage</a>" to find ways to counter that.
 
 ## Optimizing data usage
 Now that DCM's recommended encoding method is to handle type conversion automatically,<br>
@@ -122,7 +122,7 @@ Adds debug profiling for encode/decode processes to measure execution time in th
 ## What's with these type functions?
 Before DCM updated to v1.3, you would have to convert your variables to DCM data types manually.<br>
 This is handled automatically now, but you also have the choice to do the conversion yourself with `compressor:EncodeManual`<br>
-Here's a code example of encoding with EncodeManual, and below you will find [Documentation](https://github.com/EmK530/DCM#Documentation) of all types you can encode.<br>
+Here's a code example of encoding with EncodeManual, and below you will find [Documentation](https://github.com/spritesworkshop/data-compressor#Documentation) of all types you can encode.<br>
 ```lua
 local encoded = compressor:EncodeManual(
 	compressor:UInt8(127),
@@ -135,30 +135,30 @@ local encoded = compressor:EncodeManual(
 
 ## Documentation
 Below is a list of all supported data types and their respective functions and documentation.
-- [String](https://github.com/EmK530/DCM#string)
-- [Boolean5](https://github.com/EmK530/DCM#boolean5)
-- [UInt8](https://github.com/EmK530/DCM#uint8)
-- [UInt16](https://github.com/EmK530/DCM#uint16)
-- [UInt32](https://github.com/EmK530/DCM#uint32)
-- [Single](https://github.com/EmK530/DCM#single)
-- [Double](https://github.com/EmK530/DCM#double)
-- [Vector2](https://github.com/EmK530/DCM#vector2)
-- [Vector2int16](https://github.com/EmK530/DCM#vector2int16)
-- [Vector3](https://github.com/EmK530/DCM#vector3)
-- [Vector3int16](https://github.com/EmK530/DCM#vector3int16)
-- [CFrame](https://github.com/EmK530/DCM#cframe)
-- [CFrameEuler](https://github.com/EmK530/DCM#cframeeuler)
-- [Color3](https://github.com/EmK530/DCM#color3)
-- [Color3b](https://github.com/EmK530/DCM#color3b)
-- [ColorSequence](https://github.com/EmK530/DCM#colorsequence)
-- [Table](https://github.com/EmK530/DCM#table)
-- [Dictionary](https://github.com/EmK530/DCM#dictionary)
-- [Nil](https://github.com/EmK530/DCM#nil)
-- [EnumItem](https://github.com/EmK530/DCM#EnumItem)
-- [UDim](https://github.com/EmK530/DCM#UDim)
-- [UDim2](https://github.com/EmK530/DCM#UDim2)
-- [NumberSequence](https://github.com/EmK530/DCM#NumberSequence)
-- [NumberRange](https://github.com/EmK530/DCM#NumberRange)
+- [String](https://github.com/spritesworkshop/data-compressor#string)
+- [Boolean5](https://github.com/spritesworkshop/data-compressor#boolean5)
+- [UInt8](https://github.com/spritesworkshop/data-compressor#uint8)
+- [UInt16](https://github.com/spritesworkshop/data-compressor#uint16)
+- [UInt32](https://github.com/spritesworkshop/data-compressor#uint32)
+- [Single](https://github.com/spritesworkshop/data-compressor#single)
+- [Double](https://github.com/spritesworkshop/data-compressor#double)
+- [Vector2](https://github.com/spritesworkshop/data-compressor#vector2)
+- [Vector2int16](https://github.com/spritesworkshop/data-compressor#vector2int16)
+- [Vector3](https://github.com/spritesworkshop/data-compressor#vector3)
+- [Vector3int16](https://github.com/spritesworkshop/data-compressor#vector3int16)
+- [CFrame](https://github.com/spritesworkshop/data-compressor#cframe)
+- [CFrameEuler](https://github.com/spritesworkshop/data-compressor#cframeeuler)
+- [Color3](https://github.com/spritesworkshop/data-compressor#color3)
+- [Color3b](https://github.com/spritesworkshop/data-compressor#color3b)
+- [ColorSequence](https://github.com/spritesworkshop/data-compressor#colorsequence)
+- [Table](https://github.com/spritesworkshop/data-compressor#table)
+- [Dictionary](https://github.com/spritesworkshop/data-compressor#dictionary)
+- [Nil](https://github.com/spritesworkshop/data-compressor#nil)
+- [EnumItem](https://github.com/spritesworkshop/data-compressor#EnumItem)
+- [UDim](https://github.com/spritesworkshop/data-compressor#UDim)
+- [UDim2](https://github.com/spritesworkshop/data-compressor#UDim2)
+- [NumberSequence](https://github.com/spritesworkshop/data-compressor#NumberSequence)
+- [NumberRange](https://github.com/spritesworkshop/data-compressor#NumberRange)
 <hr>
 
 ### String
