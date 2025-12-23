@@ -1,5 +1,6 @@
 # DCM
 DCM, short for Data Compression Module, is a Roblox module that compresses various data types into a buffer for easy storage, compression and encryption. Forked off of [NetShrink](https://github.com/EmK530/NetShrink/) by EmK530.
+exact same thing but i changed how it worked and a couple things
 
 ## Credits
 DEFLATE/Zlib module not created by me, [see the original asset here](https://create.roblox.com/store/asset/5649237524)
