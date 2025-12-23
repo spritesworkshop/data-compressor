@@ -1,33 +1,20 @@
-local module = {}
+local dataCompressor = {}
+dataCompressor.__index = dataCompressor
 
 --[[
 
-NetShrink v1.6.0
-Compressing anything possible into binary data!
-
-Developed by EmK530
+Data Compressor Module
+Forked from NetShrink v1.6.0
 
 ]]
 
+-- FAST FLAGS
 local isStudio = game:GetService("RunService"):IsStudio()
 local debugMode = false and isStudio -- change this if you want, enables compression fail reports for strings
-
-local function CheckForModules(names)
-	for _,name in pairs(names) do
-		local Check = script:FindFirstChild(name)
-		if not Check then
-			return error("[NetShrink] Could not locate child module '"..name.."'")
-		end
-		if Check.ClassName ~= "ModuleScript" then
-			return error("[NetShrink] Child instance '"..name.."' is not a ModuleScript")
-		end
-	end
-end
-
-CheckForModules({"Compression","Encode","Decode"})
+local ENABLE_DEBUG_PROFILING = false and isStudio
 
 local EncodingService = game:GetService("EncodingService")
-local Comp = require(script.Compression)
+local Compression = require(script.Compression)
 local Encode = require(script.Encode)
 local Decode = require(script.Decode)
 
@@ -35,33 +22,37 @@ local Decode = require(script.Decode)
 
 Optimization Constants
 
-Most of these do nothing if supported by FASTCALL,
-but it still optimizes cases where FASTCALL fails for whatever reason,
+Most of these do nothing if supported by FASTCALL, 
+but it still optimizes cases where FASTCALL fails for whatever reason, 
 replacing a GETIMPORT instruction with a MOVE instruction.
 
 ]]
 
-local p = pairs
-local ts = tostring
-local ti = table.insert
-local tr = table.remove
-local mace = math.ceil
-local b3ba = bit32.band
-local b3ls = bit32.lshift
-local b3rs = bit32.rshift
-local b3bx = bit32.bxor
-local buco = buffer.copy
-local bucr = buffer.create
-local buru8 = buffer.readu8
-local buwu8 = buffer.writeu8
-local burs = buffer.readstring
-local buws = buffer.writestring
-local bule = buffer.len
-local min = math.min
+local pairs = pairs
+local tostring = tostring
+local table_insert = table.insert
+local table_remove = table.remove
+local math_ceil = math.ceil
+local math_min = math.min
+local math_floor = math.floor
+local math_clamp = math.clamp
+local bit_band = bit32.band
+local bit_lshift = bit32.lshift
+local bit_rshift = bit32.rshift
+local bit_bxor = bit32.bxor
+local buffer_copy = buffer.copy
+local buffer_create = buffer.create
+local buffer_readu8 = buffer.readu8
+local buffer_writeu8 = buffer.writeu8
+local buffer_readstring = buffer.readstring
+local buffer_writestring = buffer.writestring
+local buffer_len = buffer.len
+local debug_profilebegin_cache = debug.profilebegin
+local debug_profileend_cache = debug.profileend
 
 local compressModeTargets = {
-	"Deflate",
-	"Zlib",
+	"Deflate", 
+	"Zlib", 
 	"Zstd"
 }
 
@@ -70,90 +61,91 @@ local compressModeTargets = {
 -- Should not exceed 8
 local DataTypeBits = 5
 
-module.Config = {
-	["AutoConversion"] = {
-		["Strings"] = {
-			["CompressMode"] = 0,
-			["CompressLevel"] = 1
+local function debugProfileBegin(str: string)
+	if ENABLE_DEBUG_PROFILING then
+		debug_profilebegin_cache(str)
+	end
+end
+
+local function debugProfileEnd()
+	if ENABLE_DEBUG_PROFILING then
+		debug_profileend_cache()
+	end
+end
+
+function dataCompressor.new()
+	local self = setmetatable({
+		Config = {
+			AutoConversion = {
+				Strings = {
+					CompressMode = 0, 
+					CompressLevel = 1
+				}, 
+				Preferf32 = false, 
+				Use3bColors = true, 
+				UseEulerCFrames = false, 
+				IncludeIndexHoles = true, 
+				IndexJumpLimit = 10
+			}, 
+			CompressMode = 3, 
+			CompressLevel = 1,
 		},
-		["Preferf32"] = false,
-		["Use3bColors"] = true,
-		["UseEulerCFrames"] = false,
-		["IncludeIndexHoles"] = true,
-		["IndexJumpLimit"] = 10
-	},
-	["CompressMode"] = 3,
-	["CompressLevel"] = 1,
-	["DebugProfiling"] = false
-}
-
-local dpb_cache = debug.profilebegin
-local dpe_cache = debug.profileend
-
-local function dpb(str: string)
-	if module.Config.DebugProfiling then
-		dpb_cache(str)
-	end
+	}, dataCompressor)
+	return self
 end
 
-local function dpe()
-	if module.Config.DebugProfiling then
-		dpe_cache()
-	end
-end
-
--- Encrypts/decrypts your NetShrink buffer through XOR shifting using random numbers with the key as a seed
-module.Encrypt = function(input: buffer, key: number)
-	dpb("NetShrink.Encrypt")
-	local len = bule(input)
-	local rand = Random.new(key+len)
+-- Encrypts/decrypts your Data Compressor Module buffer through XOR shifting using random numbers with the key as a seed
+function dataCompressor:Encrypt(input: buffer, key: number)
+	debugProfileBegin("Data Compressor Module.Encrypt")
+	local len = buffer_len(input)
+	local rand = Random.new(key + len)
 	for i = 1, len do
-		buwu8(input,i-1,b3bx(buru8(input,i-1),rand:NextInteger(0,255)))
+		buffer_writeu8(input, i - 1, bit_bxor(buffer_readu8(input, i - 1), rand:NextInteger(0, 255)))
 	end
-	dpe()
+	debugProfileEnd()
 	return input
 end
 
 local hasLoadedEnum = false
--- Decodes a NetShrink encoded buffer into the original variables
-module.Decode = function(input: buffer, asTable, key)
+-- Decodes a Data Compressor Module encoded buffer into the original variables
+function dataCompressor:Decode(input: buffer, asTable, key)
 	if key ~= nil and typeof(key) == "number" then
 		-- Decrypt buffer with key
-		input = module.Encrypt(input, key)
+		input = self:Encrypt(input, key)
 	end
 	if not hasLoadedEnum then
 		hasLoadedEnum = Decode.TryLoadEnumMap()
 	end
-	local st = burs(input,0,4)
-	assert(st == "NShd", "[NetShrink] Cannot decode invalid buffer, expected 'NShd' header but got '"..st.."'")
+	local st = buffer_readstring(input, 0, 4)
+	assert(st == "NShd", "[Data Compressor Module] Cannot decode invalid buffer, expected 'NShd' header but got '"..st.."'")
 	local offset = 5
 
-	dpb("NetShrink.Decode")
-	local compressMode = buru8(input,4)
+	debugProfileBegin("Data Compressor Module.Decode")
+	local compressMode = buffer_readu8(input, 4)
 	if compressMode > 0 then
 		local tgt = compressModeTargets[compressMode]
-		dpb("Decompress "..tgt)
-		local len,steps = Decode.DecodeVarLength(input,5)
+		debugProfileBegin("Decompress "..tgt)
+		local len, steps = Decode.DecodeVarLength(input, 5)
 		local dec
 		if compressMode == 3 then
-			local dataBuf = bucr(len)
-			buco(dataBuf, 0, input, 5+steps, len)
+			local dataBuf = buffer_create(len)
+			buffer_copy(dataBuf, 0, input, 5 + steps, len)
 			dec = EncodingService:DecompressBuffer(dataBuf, Enum.CompressionAlgorithm.Zstd)
-			len = bule(dec)
-			input = bucr(len)
-			buco(input,0,dec,0,len)
+			len = buffer_len(dec)
+			input = buffer_create(len)
+			buffer_copy(input, 0, dec, 0, len)
 		else
-			local data = burs(input,5+steps,len)
-			dec = Comp[tgt].Decompress(data)
+			local data = buffer_readstring(input, 5 + steps, len)
+			dec = Compression[tgt].Decompress(data)
 			len = #dec
-			input = bucr(len)
-			buws(input,0,dec,len)
+			input = buffer_create(len)
+			buffer_writestring(input, 0, dec, len)
 		end
 		offset = 0
-		dpe()
+		debugProfileEnd()
 	end
 
-	local dataTypesSize,read = Decode.DecodeVarLength(input,offset)
+	local dataTypesSize, read = Decode.DecodeVarLength(input, offset)
 	offset += read
 	local dataTypes = {}
 	local bitBuffer = 0
@@ -161,16 +153,16 @@ module.Decode = function(input: buffer, asTable, key)
 	local byte
 	for i = 1, dataTypesSize do
 		while bitsUsed < DataTypeBits do
-			byte = buru8(input, offset)
-			offset+=1
-			bitBuffer = bitBuffer + b3ls(byte, bitsUsed)
-			bitsUsed+=8
+			byte = buffer_readu8(input, offset)
+			offset += 1
+			bitBuffer = bitBuffer + bit_lshift(byte, bitsUsed)
+			bitsUsed += 8
 		end
-		local mask = b3ls(1,DataTypeBits)-1
-		local value = b3ba(bitBuffer, mask)
-		ti(dataTypes, value)
-		bitBuffer = b3rs(bitBuffer, DataTypeBits)
-		bitsUsed-=DataTypeBits
+		local mask = bit_lshift(1, DataTypeBits) - 1
+		local value = bit_band(bitBuffer, mask)
+		table_insert(dataTypes, value)
+		bitBuffer = bit_rshift(bitBuffer, DataTypeBits)
+		bitsUsed -= DataTypeBits
 	end
 	local returns = {}
 	local cur = returns
@@ -183,7 +175,7 @@ module.Decode = function(input: buffer, asTable, key)
 	local delayedNilWrites = {}
 	local decodeRecursive
 	decodeRecursive = function(insert)
-		dpb("decodeRecursive")
+		debugProfileBegin("decodeRecursive")
 		local startLayer = layer
 		while i <= dataTypeCount do
 			local ty = dataTypes[i]
@@ -192,7 +184,7 @@ module.Decode = function(input: buffer, asTable, key)
 				pos = 1
 				layer += 1
 				local new = {}
-				ti(layers, new)
+				table_insert(layers, new)
 				cur = new
 				i += 1
 			elseif ty == 14 then
@@ -200,12 +192,12 @@ module.Decode = function(input: buffer, asTable, key)
 				pos = positions[layer]
 				local ret = cur
 				local n = layers[layer]
-				tr(layers, layer + 1)
+				table_remove(layers, layer + 1)
 				cur = n
 				i += 1
 				if startLayer >= layer and not insert then
 					layer = startLayer
-					dpe()
+					debugProfileEnd()
 					return ret
 				else
 					n[pos] = ret
@@ -227,34 +219,34 @@ module.Decode = function(input: buffer, asTable, key)
 					else
 						local a = decodeRecursive(false)
 						if a == nil then
-							ti(delayedWrite,{tgt,curPos})
+							table_insert(delayedWrite, {tgt, curPos})
 						else
 							tgt[curPos] = a
 						end
 						curPos += 1
 					end
 				end
-				for _,v in delayedWrite do
+				for _, v in delayedWrite do
 					v[1][v[2]] = nil
 				end
 				local ret = {}
-				for i = 1, min(#keys,#values) do
-					local v1,v2 = keys[i],values[i]
+				for i = 1, math_min(#keys, #values) do
+					local v1, v2 = keys[i], values[i]
 					if v1 then
 						if v2 == nil then
-							ti(delayedNilWrites,{ret,v1})
+							table_insert(delayedNilWrites, {ret, v1})
 						else
 							ret[v1] = v2
 						end
 					end
 				end
 				if not insert then
-					dpe()
+					debugProfileEnd()
 					return ret
 				else
 					cur[pos] = ret
 					pos += 1
-					--ti(cur, ret)
+					--table_insert(cur, ret)
 				end
 			else
 				local ret, r = Decode.ReadType(input, offset, ty)
@@ -262,25 +254,25 @@ module.Decode = function(input: buffer, asTable, key)
 				offset = r
 				if startLayer >= layer and not insert then
 					layer = startLayer
-					dpe()
+					debugProfileEnd()
 					return ret
 				else
 					if ret ~= nil then
 						cur[pos] = ret
 					elseif ty == 16 then
-						ti(delayedNilWrites, {cur, pos})
+						table_insert(delayedNilWrites, {cur, pos})
 					end
-					pos+=1
+					pos += 1
 				end
 			end
 		end
-		dpe()
+		debugProfileEnd()
 	end
 	decodeRecursive(true)
-	for _,v in delayedNilWrites do
+	for _, v in delayedNilWrites do
 		v[1][v[2]] = nil
 	end
-	dpe()
+	debugProfileEnd()
 	if asTable then
 		return returns
 	else
@@ -290,52 +282,52 @@ end
 
 local EncodeList
 
-local max = 2^DataTypeBits-1
+local max = 2 ^ DataTypeBits - 1
 
-local function RecursiveEncode(inp: {}, output, types, dictionary)
-	dpb("RecursiveEncode")
-	local amt = #inp
+local function RecursiveEncode(input: {}, output, types, dictionary)
+	debugProfileBegin("RecursiveEncode")
+	local amt = #input
 	local totals = 0
 	if dictionary then
 		local l1 = {}
-		for i,_ in inp do
-			ti(l1, i)
+		for i, _ in input do
+			table_insert(l1, i)
 		end
 		totals += EncodeList(l1, output, types)
-		ti(types, 14)
+		table_insert(types, 14)
 		totals += 1
 	end
-	totals += EncodeList(inp, output, types)
-	dpe()
+	totals += EncodeList(input, output, types)
+	debugProfileEnd()
 	return totals
 end
 
-EncodeList = function(inp: {}, output, types)
-	dpb("EncodeList")
+EncodeList = function(input: {}, output, types)
+	debugProfileBegin("EncodeList")
 	local totals = 0
-	for _,v in inp do
+	for _, v in input do
 		local t = typeof(v)
-		assert(t=="table", "[NetShrink] Invalid argument type for EncodeManual, expected table but got "..t)
-		assert(v.DataType <= max, "[NetShrink] Cannot encode DataType "..v.DataType)
+		assert(t == "table", "[Data Compressor Module] Invalid argument type for EncodeManual, expected table but got "..t)
+		assert(v.DataType <= max, "[Data Compressor Module] Cannot encode DataType "..v.DataType)
 		if v.DataType == 13 or v.DataType == 15 then
-			ti(types, v.DataType)
-			local a = RecursiveEncode(v.Value,output,types,v.DataType==15)
-			ti(types, 14)
+			table_insert(types, v.DataType)
+			local a = RecursiveEncode(v.Value, output, types, v.DataType == 15)
+			table_insert(types, 14)
 			totals += a + 2
 		else
-			ti(types, v.DataType)
+			table_insert(types, v.DataType)
 			local enc = Encode.Convert(v)
-			ti(output,enc)
+			table_insert(output, enc)
 			totals += 1
 		end
 	end
-	dpe()
+	debugProfileEnd()
 	return totals
 end
 
-local function IsDictionary(t: {})
-	local ijl = module.Config.AutoConversion.IndexJumpLimit
-	local shouldFill = module.Config.AutoConversion.IncludeIndexHoles
+function dataCompressor:IsDictionary(t: {})
+	local ijl = self.Config.AutoConversion.IndexJumpLimit
+	local shouldFill = self.Config.AutoConversion.IncludeIndexHoles
 	local indexId = 1
 	for i, _ in t do
 		local notSequential = i ~= indexId
@@ -351,91 +343,91 @@ local function IsDictionary(t: {})
 	return #t ~= table.maxn(t)
 end
 
--- Encodes NetShrink data types into a buffer and returns said buffer
-module.EncodeManual = function(...)
-	dpb("NetShrink.EncodeManual")
+-- Encodes Data Compressor Module data types into a buffer and returns said buffer
+function dataCompressor:EncodeManual(...)
+	debugProfileBegin("Data Compressor Module.EncodeManual")
 	local dataTypes = {}
 	local encodedData = {}
-	local dataTypesSize = RecursiveEncode({...},encodedData,dataTypes)
+	local dataTypesSize = RecursiveEncode({...}, encodedData, dataTypes)
 	local varlen = Encode.EncodeVarLength(dataTypesSize)
-	local vls = bule(varlen)
+	local vls = buffer_len(varlen)
 	local offset = vls
-	local dataTypesBuffer = bucr(vls + mace(dataTypesSize * DataTypeBits / 8))
-	buco(dataTypesBuffer,0,varlen,0,vls)
+	local dataTypesBuffer = buffer_create(vls + math_ceil(dataTypesSize * DataTypeBits / 8))
+	buffer_copy(dataTypesBuffer, 0, varlen, 0, vls)
 	local bitBuffer = 0
 	local bitsUsed = 0
-	for _, v in p(dataTypes) do
-		bitBuffer+=b3ls(v, bitsUsed)
-		bitsUsed+=DataTypeBits
+	for _, v in pairs(dataTypes) do
+		bitBuffer += bit_lshift(v, bitsUsed)
+		bitsUsed += DataTypeBits
 		if bitsUsed >= 8 then
-			buwu8(dataTypesBuffer, offset, b3ba(bitBuffer, 0xFF))
-			bitBuffer = b3rs(bitBuffer, 8)
-			bitsUsed-=8
-			offset+=1
+			buffer_writeu8(dataTypesBuffer, offset, bit_band(bitBuffer, 0xFF))
+			bitBuffer = bit_rshift(bitBuffer, 8)
+			bitsUsed -= 8
+			offset += 1
 		end
 	end
 	if bitsUsed > 0 then
-		buwu8(dataTypesBuffer, offset, bitBuffer)
-		offset+=1
+		buffer_writeu8(dataTypesBuffer, offset, bitBuffer)
+		offset += 1
 	end
 	local encodedDataSize = 0
-	for _, v in p(encodedData) do
-		encodedDataSize+=bule(v)
+	for _, v in pairs(encodedData) do
+		encodedDataSize += buffer_len(v)
 	end
-	local finalBuffer = bucr(offset + encodedDataSize)
-	buco(finalBuffer, 0, dataTypesBuffer, 0, offset)
+	local finalBuffer = buffer_create(offset + encodedDataSize)
+	buffer_copy(finalBuffer, 0, dataTypesBuffer, 0, offset)
 	local finalOffset = offset
-	for _, v in p(encodedData) do
-		local s = bule(v)
-		buco(finalBuffer, finalOffset, v, 0, s)
-		finalOffset+=s
+	for _, v in pairs(encodedData) do
+		local s = buffer_len(v)
+		buffer_copy(finalBuffer, finalOffset, v, 0, s)
+		finalOffset += s
 	end
 
-	local cfg = module.Config
+	local cfg = self.Config
 	local cm = cfg.CompressMode
 	if cm > 0 then
 		local cl = cfg.CompressLevel
 		if cm == 3 then
-			local lenBuffer = bule(finalBuffer)
-			local compBuffer = EncodingService:CompressBuffer(finalBuffer,Enum.CompressionAlgorithm.Zstd,cl)
-			local complen = bule(compBuffer)
+			local lenBuffer = buffer_len(finalBuffer)
+			local compBuffer = EncodingService:CompressBuffer(finalBuffer, Enum.CompressionAlgorithm.Zstd, cl)
+			local complen = buffer_len(compBuffer)
 			if complen < lenBuffer then
 				local lenAsBytes = Encode.EncodeVarLength(complen)
-				local lenbytecount = bule(lenAsBytes)
-				local finalBuffer2 = bucr(complen+5+lenbytecount)
-				buws(finalBuffer2,0,"NShd",4)
-				buwu8(finalBuffer2,4,cm)
-				buco(finalBuffer2,5,lenAsBytes,0,lenbytecount)
-				buco(finalBuffer2,5+lenbytecount,compBuffer,0,complen)
-				dpe()
+				local lenbytecount = buffer_len(lenAsBytes)
+				local finalBuffer2 = buffer_create(complen + 5 + lenbytecount)
+				buffer_writestring(finalBuffer2, 0, "NShd", 4)
+				buffer_writeu8(finalBuffer2, 4, cm)
+				buffer_copy(finalBuffer2, 5, lenAsBytes, 0, lenbytecount)
+				buffer_copy(finalBuffer2, 5 + lenbytecount, compBuffer, 0, complen)
+				debugProfileEnd()
 				return finalBuffer2
 			end
 		else
-			local tgt = Comp[compressModeTargets[cm]]
-			local lenBuffer = bule(finalBuffer)
-			local compString = tgt.Compress(burs(finalBuffer,0,lenBuffer),{level=cl,strategy="fixed"})
+			local tgt = Compression[compressModeTargets[cm]]
+			local lenBuffer = buffer_len(finalBuffer)
+			local compString = tgt.Compress(buffer_readstring(finalBuffer, 0, lenBuffer), {level=cl, strategy = "fixed"})
 			local complen = #compString
 			if complen < lenBuffer then
 				local lenAsBytes = Encode.EncodeVarLength(complen)
-				local lenbytecount = bule(lenAsBytes)
-				local finalBuffer2 = bucr(complen+5+lenbytecount)
-				buws(finalBuffer2,0,"NShd",4)
-				buwu8(finalBuffer2,4,cm)
-				buco(finalBuffer2,5,lenAsBytes,0,lenbytecount)
-				buws(finalBuffer2,5+lenbytecount,compString,complen)
-				dpe()
+				local lenbytecount = buffer_len(lenAsBytes)
+				local finalBuffer2 = buffer_create(complen+5+lenbytecount)
+				buffer_writestring(finalBuffer2, 0, "NShd", 4)
+				buffer_writeu8(finalBuffer2, 4, cm)
+				buffer_copy(finalBuffer2, 5, lenAsBytes, 0, lenbytecount)
+				buffer_writestring(finalBuffer2, 5 + lenbytecount, compString, complen)
+				debugProfileEnd()
 				return finalBuffer2
 			end
 		end
 	end
 
-	local lenBuffer = bule(finalBuffer)
-	local finalBuffer2 = bucr(lenBuffer+5)
-	buws(finalBuffer2,0,"NShd",4)
-	buwu8(finalBuffer2,4,0)
-	buco(finalBuffer2,5,finalBuffer,0,lenBuffer)
+	local lenBuffer = buffer_len(finalBuffer)
+	local finalBuffer2 = buffer_create(lenBuffer + 5)
+	buffer_writestring(finalBuffer2, 0, "NShd", 4)
+	buffer_writeu8(finalBuffer2, 4, 0)
+	buffer_copy(finalBuffer2, 5, finalBuffer, 0, lenBuffer)
 
-	dpe()
+	debugProfileEnd()
 	return finalBuffer2
 end
 
@@ -449,11 +441,11 @@ CompressMode:
 
 CompressLevel: 0 - 9
 ]]
-module.String = function(input: string, compressMode: number, compressLevel: number)
+function dataCompressor:String(input: string, compressMode: number, compressLevel: number)
 	if not compressMode then compressMode = 0 end
 	if not compressLevel then compressLevel = 0 end
-	if compressLevel < 0 or compressLevel > 9 then return error("[NetShrink] Compression level not within range 0-9") end
-	if compressMode < 0 or compressMode > 3 then return error("[NetShrink] Compression mode not within range 0-3") end
+	if compressLevel < 0 or compressLevel > 9 then return error("[Data Compressor Module] Compression level not within range 0-9") end
+	if compressMode < 0 or compressMode > 3 then return error("[Data Compressor Module] Compression mode not within range 0-3") end
 	local compressed = compressMode > 0 and compressLevel > 0
 
 	if compressed then
@@ -461,10 +453,10 @@ module.String = function(input: string, compressMode: number, compressLevel: num
 		local newSize
 		if compressMode == 3 then
 			new = EncodingService:CompressBuffer(buffer.fromstring(input), Enum.CompressionAlgorithm.Zstd, compressLevel)
-			newSize = bule(new)
+			newSize = buffer_len(new)
 		else
-			new = Comp[compressModeTargets[compressMode]].Compress(input, {
-				level = compressLevel,
+			new = Compression[compressModeTargets[compressMode]].Compress(input, {
+				level = compressLevel, 
 				strategy = "fixed"
 			})
 			newSize = #new
@@ -473,276 +465,273 @@ module.String = function(input: string, compressMode: number, compressLevel: num
 			input = new
 		else
 			if debugMode then
-				print("[NetShrink] Could not compress string! Gained "..(#new-#input).." bytes.")
+				print("[Data Compressor Module] Could not compress string! Gained " .. (#new-#input) .. " bytes.")
 			end
 			compressed = false
 		end
 	end
 
 	return {
-		DataType = 0,
-		CompressMode = (if compressed then compressMode else 0),
+		DataType = 0, 
+		CompressMode = (if compressed then compressMode else 0), 
 		Data = input
 	}
 end
 
 --[[
-Create a NetShrink data type for a collection of up to 5 booleans.
+Create a Data Compressor Module data type for a collection of up to 5 booleans.
 Size: 1 byte.
 ]]
-module.Boolean5 = function(...)
+function dataCompressor:Boolean5(...)
 	local tbl = {...}
 	local len = #tbl
-	if len > 5 then return error("[NetShrink] BooleanTables cannot hold more than 5 booleans") end
-	if len == 0 then return error("[NetShrink] BooleanTables cannot be empty") end
-	local out = b3ls(len-1,5)
+	if len > 5 then return error("[Data Compressor Module] BooleanTables cannot hold more than 5 booleans") end
+	if len == 0 then return error("[Data Compressor Module] BooleanTables cannot be empty") end
+	local out = bit_lshift(len-1, 5)
 	for i = 1, len do
 		local val = tbl[i]
 		if val then
-			out += b3ls(1,5-i)
+			out += bit_lshift(1, 5 - i)
 		end
 	end
 	return {
-		DataType = 1,
+		DataType = 1, 
 		Value = out
 	}
 end
 
 --[[
-Create a NetShrink data type for an unsigned 8-bit integer.
+Create a Data Compressor Module data type for an unsigned 8-bit integer.
 Does not support decimals and ranges outside 0-255
 Size: 1 byte.
 ]]
-module.UInt8 = function(num: number)
-	if num < 0 then return error("[NetShrink] Number for UInt8 cannot be less than 0") end
-	if num > 255 then return error("[NetShrink] Number for UInt8 cannot be greater than 255") end
+function dataCompressor:UInt8(num: number)
+	if num < 0 then return error("[Data Compressor Module] Number for UInt8 cannot be less than 0") end
+	if num > 255 then return error("[Data Compressor Module] Number for UInt8 cannot be greater than 255") end
 	return {
-		DataType = 2,
+		DataType = 2, 
 		Value = num
 	}
 end
 
 --[[
-Create a NetShrink data type for an unsigned 16-bit integer.
+Create a Data Compressor Module data type for an unsigned 16-bit integer.
 Does not support decimals and ranges outside 0-65535
 Size: 2 bytes.
 ]]
-module.UInt16 = function(num: number)
-	if num < 0 then return error("[NetShrink] Number for UInt16 cannot be less than 0") end
-	if num > 65535 then return error("[NetShrink] Number for UInt16 cannot be greater than 65535") end
+function dataCompressor:UInt16(num: number)
+	if num < 0 then return error("[Data Compressor Module] Number for UInt16 cannot be less than 0") end
+	if num > 65535 then return error("[Data Compressor Module] Number for UInt16 cannot be greater than 65535") end
 	return {
-		DataType = 3,
+		DataType = 3, 
 		Value = num
 	}
 end
 
 --[[
-Create a NetShrink data type for an unsigned 32-bit integer.
+Create a Data Compressor Module data type for an unsigned 32-bit integer.
 Does not support decimals and ranges outside 0-4294967295
 Size: 4 bytes.
 ]]
-module.UInt32 = function(num: number)
-	if num < 0 then return error("[NetShrink] Number for UInt32 cannot be less than 0") end
-	if num > 4294967295 then return error("[NetShrink] Number for UInt32 cannot be greater than 4294967295") end
+function dataCompressor:UInt32(num: number)
+	if num < 0 then return error("[Data Compressor Module] Number for UInt32 cannot be less than 0") end
+	if num > 4294967295 then return error("[Data Compressor Module] Number for UInt32 cannot be greater than 4294967295") end
 	return {
-		DataType = 4,
+		DataType = 4, 
 		Value = num
 	}
 end
 
 --[[
-Create a NetShrink data type for a 32-bit floating point number.
+Create a Data Compressor Module data type for a 32-bit floating point number.
 Roblox numbers use Doubles, so you may lose precision with this.
 Size: 4 bytes.
 ]]
-module.Single = function(num: number)
+function dataCompressor:Single(num: number)
 	return {
-		DataType = 5,
+		DataType = 5, 
 		Value = num
 	}
 end
 
 --[[
-Create a NetShrink data type for a 64-bit floating point number.
+Create a Data Compressor Module data type for a 64-bit floating point number.
 Size: 8 bytes.
 ]]
-module.Double = function(num: number)
+function dataCompressor:Double(num: number)
 	return {
-		DataType = 6,
+		DataType = 6, 
 		Value = num
 	}
 end
 
 --[[
-Create a NetShrink data type for a Vector2.
+Create a Data Compressor Module data type for a Vector2.
 Size: 8 bytes as float, 16 bytes as double.
 ]]
-module.Vector2 = function(input: Vector2, float: boolean)
+function dataCompressor:Vector2(input: Vector2, float: boolean)
 	if not float then float = false end
 	return {
-		DataType = 7,
-		comp = float,
-		Data = {input.X,input.Y}
+		DataType = 7, 
+		comp = float, 
+		Data = {input.X, input.Y}
 	}
 end
 
 --[[
-Create a NetShrink data type for a Vector2int16.
+Create a Data Compressor Module data type for a Vector2int16.
 Size: 4 bytes.
 ]]
-module.Vector2int16 = function(input: Vector2int16)
+function dataCompressor:Vector2int16(input: Vector2int16)
 	return {
-		DataType = 18,
-		Data = {input.X,input.Y}
+		DataType = 18, 
+		Data = {input.X, input.Y}
 	}
 end
 
 --[[
-Create a NetShrink data type for a Vector3.
+Create a Data Compressor Module data type for a Vector3.
 Size: 12 bytes as float, 24 bytes as double.
 ]]
-module.Vector3 = function(input: Vector3, float: boolean)
+function dataCompressor:Vector3(input: Vector3, float: boolean)
 	if not float then float = false end
 	return {
-		DataType = 8,
-		comp = float,
-		Data = {input.X,input.Y,input.Z}
+		DataType = 8, 
+		comp = float, 
+		Data = {input.X, input.Y, input.Z}
 	}
 end
 
 --[[
-Create a NetShrink data type for a Vector3int16.
+Create a Data Compressor Module data type for a Vector3int16.
 Size: 6 bytes.
 ]]
-module.Vector3int16 = function(input: Vector3int16)
+function dataCompressor:Vector3int16(input: Vector3int16)
 	return {
-		DataType = 19,
-		Data = {input.X,input.Y,input.Z}
+		DataType = 19, 
+		Data = {input.X, input.Y, input.Z}
 	}
 end
 
 --[[
-Create a NetShrink data type for a CFrame.
+Create a Data Compressor Module data type for a CFrame.
 Size: 24 bytes
 ]]
-module.CFrame = function(input: CFrame)
+function dataCompressor:CFrame(input: CFrame)
 	return {
-		DataType = 9,
+		DataType = 9, 
 		Data = {input:GetComponents()}
 	}
 end
 
 --[[
-Create a NetShrink data type for a CFrame.
+Create a Data Compressor Module data type for a CFrame.
 This variant only encodes XYZ coordinates and EulerAngles to reduce the size.
 Size: 24 bytes as float, 48 bytes as double.
 ]]
-module.CFrameEuler = function(input: CFrame, float: boolean)
+function dataCompressor:CFrameEuler(input: CFrame, float: boolean)
 	if not float then float = false end
-	local rx,ry,rz = input:ToEulerAnglesXYZ()
+	local rx, ry, rz = input:ToEulerAnglesXYZ()
 	return {
-		DataType = 10,
-		comp = float,
-		Data = {input.X,input.Y,input.Z,rx,ry,rz}
+		DataType = 10, 
+		comp = float, 
+		Data = {input.X, input.Y, input.Z, rx, ry, rz}
 	}
 end
 
-local indexes = { -- screw you BrickColor for having lowercase indexes >:(
-	["BrickColor"] = {"r","g","b"},
-	["Color3"] = {"R","G","B"}
+local colorClassIndexes = { -- screw you BrickColor for having lowercase indexes >:(
+	BrickColor = {"r", "g", "b"}, 
+	Color3 = {"R", "G", "B"}
 }
 
 --[[
-Create a NetShrink data type for a Color3/BrickColor.
+Create a Data Compressor Module data type for a Color3/BrickColor.
 Size: 14 bytes as float, 26 bytes as double.
 ]]
-module.Color3 = function(input, float: boolean)
+function dataCompressor:Color3(input, float: boolean)
 	if not float then float = false end
 	local t = typeof(input)
-	local idx = indexes[t]
+	local idx = colorClassIndexes[t]
 	return {
-		DataType = 11,
-		comp = float,
-		Brick = t~="Color3",
-		Data = {input[idx[1]],input[idx[2]],input[idx[3]]}
+		DataType = 11, 
+		comp = float, 
+		Brick = t ~= "Color3", 
+		Data = {input[idx[1]], input[idx[2]], input[idx[3]]}
 	}
 end
 
-local mf = math.floor
-local mc = math.clamp
-
 local function toByte(num)
-	return mc(mf(num*255),0,255)
+	return math_clamp(math_floor(num * 255), 0, 255)
 end
 
 --[[
-Create a NetShrink data type for a Color3/BrickColor.
+Create a Data Compressor Module data type for a Color3/BrickColor.
 This variant loses some precision by converting each color channel to a single byte.
 Size: 3 bytes.
 ]]
-module.Color3b = function(input)
+function dataCompressor:Color3b(input)
 	local t = typeof(input)
-	local idx = indexes[t]
+	local idx = colorClassIndexes[t]
 	return {
-		DataType = 12,
-		Brick = t~="Color3",
-		R = toByte(input[idx[1]]),
-		G = toByte(input[idx[2]]),
+		DataType = 12, 
+		Brick = t ~= "Color3", 
+		R = toByte(input[idx[1]]), 
+		G = toByte(input[idx[2]]), 
 		B = toByte(input[idx[3]])
 	}
 end
 
 
 --[[
-Create a NetShrink data type for a table.
-This function accepts NetShrink data types as entries
+Create a Data Compressor Module data type for a table.
+This function accepts Data Compressor Module data types as entries
 ]]
-module.Table = function(...)
+function dataCompressor:Table(...)
 	local t = {}
-	for _,v in pairs({...}) do
-		table.insert(t,v)
+	for _, v in pairs({...}) do
+		table.insert(t, v)
 	end
 	return {
-		DataType = 13,
+		DataType = 13, 
 		Value = t
 	}
 end
 
 --[[
-Create a NetShrink data type for a dictionary. (table with keys)
-This function accepts a dictionary, keys and values should be NetShrink data types
+Create a Data Compressor Module data type for a dictionary. (table with keys)
+This function accepts a dictionary, keys and values should be Data Compressor Module data types
 If any value is incorrect it will be removed
 ]]
-module.Dictionary = function(v: {})
+function dataCompressor:Dictionary(v: {})
 	local t = {}
-	for i,v in pairs(v) do
-		local t1,t2 = typeof(i),typeof(v)
-		if t1 == "table" and t2 == "table" and i["DataType"] and v["DataType"] then
+	for i, v in pairs(v) do
+		local t1, t2 = typeof(i), typeof(v)
+		if t1 == "table" and t2 == "table" and i.DataType and v.DataType then
 			t[i] = v
 		else
-			warn("[NetShrink] Ignoring non-datatype dictionary key: "..i)
+			warn("[Data Compressor Module] Ignoring non-datatype dictionary key: "..i)
 			continue
 		end
 	end
 	return {
-		DataType = 15,
+		DataType = 15, 
 		Value = t
 	}
 end
 
 --[[
-Create a NetShrink data type for a nil value.
+Create a Data Compressor Module data type for a nil value.
 Size: 0 bytes.
 ]]
-module.Nil = function()
+function dataCompressor:Nil()
 	return { DataType = 16 }
 end
 
 --[[
-Create a NetShrink data type for a ColorSequence
+Create a Data Compressor Module data type for a ColorSequence
 Size: 3 bytes + (7/11/16/32 bytes per keypoint depending on settings).
 ]]
-module.ColorSequence = function(input: ColorSequence, float: boolean, byte: boolean)
+function dataCompressor:ColorSequence(input: ColorSequence, float: boolean, byte: boolean)
 	return { DataType = 17, comp1 = float, comp2 = byte, Value = input }
 end
 
@@ -755,7 +744,7 @@ end
 Create a Netshrink data type for an EnumItem
 Size: 3 bytes
 ]]
-module.EnumItem = function(input: EnumItem)
+function dataCompressor:EnumItem(input: EnumItem)
 	local enumIdx: number = enumMapReverse[input.EnumType] -- uint16
 	local value: number = input.Value -- byte
 
@@ -769,9 +758,9 @@ end
 Create a Netshrink data type for an UDim2
 Size: 16 bytes.
 ]]
-module.UDim2 = function(input: UDim2)
+function dataCompressor:UDim2(input: UDim2)
 	return {
-		DataType = 21,
+		DataType = 21, 
 		Data = {input.X.Scale, input.X.Offset, input.Y.Scale, input.Y.Offset}
 	}
 end
@@ -780,9 +769,9 @@ end
 Create a Netshrink data type for a UDim
 Size: 8 bytes.
 ]]
-module.UDim = function(input: UDim)
+function dataCompressor:UDim(input: UDim)
 	return {
-		DataType = 22,
+		DataType = 22, 
 		Data = {input.Scale, input.Offset}
 	}
 end
@@ -791,7 +780,7 @@ end
 Create a Netshrink data type for a NumberSequence
 Size: 2+(keypoints * 4) bytes as float, 2+(keypoints * 8) bytes as double.
 ]]
-module.NumberSequence = function(input: UDim, float: boolean)
+function dataCompressor:NumberSequence(input: UDim, float: boolean)
 	return { DataType = 23, comp1 = float, Value = input }
 end
 
@@ -799,7 +788,7 @@ end
 Create a Netshrink data type for a NumberRange
 Size: 8 bytes as float, 16 bytes as double.
 ]]
-module.NumberRange = function(input: UDim, float: boolean)
+function dataCompressor:NumberRange(input: UDim, float: boolean)
 	return { DataType = 24, comp1 = float, Value = input }
 end
 
@@ -813,143 +802,143 @@ local function Boolean5Compatible(v: {})
 	return true
 end
 
-local VtoDT
-VtoDT = {
-	["number"] = function(v: number)
+local conversionMapping
+conversionMapping = {
+	number = function(self, v: number)
 		local decimal = v % 1 ~= 0
 		if decimal or v < 0 or v > 4294967295 then
-			local f32 = module.Config.AutoConversion.Preferf32
-			return module[if f32 then "Single" else "Double"](v)
+			local f32 = self.Config.AutoConversion.Preferf32
+			return self[if f32 then "Single" else "Double"](self, v)
 		end
-		if v <= 255 then return module.UInt8(v) end
-		if v <= 65535 then return module.UInt16(v) end
-		return module.UInt32(v)
+		if v <= 255 then return self:UInt8(v) end
+		if v <= 65535 then return self:UInt16(v) end
+		return self:UInt32(v)
 	end,
-	["string"] = function(v: string)
-		local stringConfig = module.Config.AutoConversion.Strings
-		return module.String(v, stringConfig.CompressMode, stringConfig.CompressLevel)
-	end,
-	["table"] = function(v: {})
+	string = function(self, v: string)
+		local stringConfig = self.Config.AutoConversion.Strings
+		return self:String(v, stringConfig.CompressMode, stringConfig.CompressLevel)
+	end, 
+	table = function(self, v: {})
 		if Boolean5Compatible(v) then
-			return module.Boolean5(unpack(v))
+			return self:Boolean5(unpack(v))
 		end
 		local stuff = {}
-		local is_dict = IsDictionary(v)
+		local is_dict = self:IsDictionary(v)
 		if not is_dict then -- Encode as table
 			for i = 1, #v do
 				local ent = v[i]
 				local t = typeof(ent)
-				local converter = VtoDT[t]
+				local converter = conversionMapping[t]
 				if not converter then
-					warn("[NetShrink] Unsupported variable type: "..t)
+					warn("[Data Compressor Module] Unsupported variable type: "..t)
 					continue
 				end
-				local result = converter(ent)
+				local result = converter(self, ent)
 				if result then
-					ti(stuff, result)
+					table_insert(stuff, result)
 				end
 			end
-			return module.Table(unpack(stuff))		
+			return self:Table(unpack(stuff))		
 		end
 		-- Encode as dictionary
-		for i,v in v do
-			local t1,t2 = typeof(i),typeof(v)
-			local c1,c2 = VtoDT[t1],VtoDT[t2]
-			if not c1 then warn("[NetShrink] Unsupported variable type: "..t1) continue end
-			if not c2 then warn("[NetShrink] Unsupported variable type: "..t2) continue end
-			local r1,r2 = c1(i),c2(v)
+		for i, v in v do
+			local t1, t2 = typeof(i), typeof(v)
+			local c1, c2 = conversionMapping[t1], conversionMapping[t2]
+			if not c1 then warn("[Data Compressor Module] Unsupported variable type: "..t1) continue end
+			if not c2 then warn("[Data Compressor Module] Unsupported variable type: "..t2) continue end
+			local r1, r2 = c1(self, i), c2(self, v)
 			if r1 and r2 then stuff[r1] = r2 end
 		end
-		return module.Dictionary(stuff)
-	end,
-	["boolean"] = function(v: boolean)
-		return module.Boolean5(v)
-	end,
-	["Vector2"] = function(v: Vector2)
-		return module.Vector2(v,module.Config.AutoConversion.Preferf32)
-	end,
-	["Vector3"] = function(v: Vector3)
-		return module.Vector3(v,module.Config.AutoConversion.Preferf32)
-	end,
-	["CFrame"] = function(v: CFrame)
-		local ac = module.Config.AutoConversion
-		return module[if ac.UseEulerCFrames then "CFrameEuler" else "CFrame"](v,ac.Preferf32)
-	end,
-	["Color3"] = function(v)
-		local ac = module.Config.AutoConversion
+		return self:Dictionary(stuff)
+	end, 
+	boolean = function(self, v: boolean)
+		return self:Boolean5(v)
+	end, 
+	Vector2 = function(self, v: Vector2)
+		return self:Vector2(v, self.Config.AutoConversion.Preferf32)
+	end, 
+	Vector3 = function(self, v: Vector3)
+		return self:Vector3(v, self.Config.AutoConversion.Preferf32)
+	end, 
+	CFrame = function(self, v: CFrame)
+		local ac = self.Config.AutoConversion
+		return self[if ac.UseEulerCFrames then "CFrameEuler" else "CFrame"](self, v, ac.Preferf32)
+	end, 
+	Color3 = function(self, v)
+		local ac = self.Config.AutoConversion
 		if ac.Use3bColors then
-			return module.Color3b(v)
+			return self:Color3b(v)
 		end
-		return module.Color3(v,ac.Preferf32)
-	end,
-	["BrickColor"] = function(v: BrickColor)
-		return VtoDT["Color3"](v) -- xd
-	end,
-	["nil"] = function(v: nil)
-		return module.Nil()
-	end,
-	["ColorSequence"] = function(v: ColorSequence)
-		local ac = module.Config.AutoConversion
-		return module.ColorSequence(v, ac.Preferf32, ac.Use3bColors)
-	end,
-	["Vector2int16"] = function(v: Vector2int16)
-		return module.Vector2int16(v)
-	end,
-	["Vector3int16"] = function(v: Vector3int16)
-		return module.Vector3int16(v)
-	end,
-	["EnumItem"] = function(v: EnumItem)
-		return module.EnumItem(v)
-	end,
-	["UDim2"] = function(v: UDim2)
-		return module.UDim2(v)
-	end,
-	["UDim"] = function(v: UDim)
-		return module.UDim(v)
-	end,
-	["NumberSequence"] = function(v: NumberSequence)
-		return module.NumberSequence(v, module.Config.AutoConversion.Preferf32)
-	end,
-	["NumberRange"] = function(v: NumberSequence)
-		return module.NumberRange(v, module.Config.AutoConversion.Preferf32)
-	end,
+		return self:Color3(v, ac.Preferf32)
+	end, 
+	BrickColor = function(self, v: BrickColor)
+		return conversionMapping.Color3(self, v) -- xd
+	end, 
+	['nil'] = function(self, v: nil)
+		return self:Nil()
+	end, 
+	ColorSequence = function(self, v: ColorSequence)
+		local ac = self.Config.AutoConversion
+		return self:ColorSequence(v, ac.Preferf32, ac.Use3bColors)
+	end, 
+	Vector2int16 = function(self, v: Vector2int16)
+		return self:Vector2int16(v)
+	end, 
+	Vector3int16 = function(self, v: Vector3int16)
+		return self:Vector3int16(v)
+	end, 
+	EnumItem = function(self, v: EnumItem)
+		return self:EnumItem(v)
+	end, 
+	UDim2 = function(self, v: UDim2)
+		return self:UDim2(v)
+	end, 
+	UDim = function(self, v: UDim)
+		return self:UDim(v)
+	end, 
+	NumberSequence = function(self, v: NumberSequence)
+		return self:NumberSequence(v, self.Config.AutoConversion.Preferf32)
+	end, 
+	NumberRange = function(self, v: NumberSequence)
+		return self:NumberRange(v, self.Config.AutoConversion.Preferf32)
+	end, 
 }
 
 --[[
-Variant of NetShrink.Encode that requires arguments to be within a table
+Variant of Data Compressor Module.Encode that requires arguments to be within a table
 Should help with cases where you might exceed a register limit when unpacking.
-Automatically converts variables in the table to NetShrink data types then encodes it to a buffer.
+Automatically converts variables in the table to Data Compressor Module data types then encodes it to a buffer.
 ]]
-module.EncodeT = function(t: {})
-	dpb("NetShrink.EncodeT")
+function dataCompressor:EncodeT(t: {})
+	debugProfileBegin("Data Compressor Module.EncodeT")
 	local dataTypes = {}
-	local n = t["n"] or #(t :: {})
-	dpb("Auto-convert variables")
+	local n = (t :: any).n or #(t :: {})
+	debugProfileBegin("Auto-convert variables")
 	for i = 1, n do
 		local v = t[i] -- fixes missing nil entries
 		local t = typeof(v)
-		local converter = VtoDT[t]
+		local converter = conversionMapping[t]
 		if not converter then
-			warn("[NetShrink] Unsupported variable type: "..t)
+			warn("[Data Compressor Module] Unsupported variable type: "..t)
 			continue
 		end
-		local result = converter(v)
+		local result = converter(self, v)
 		if result then
-			ti(dataTypes, result)
+			table_insert(dataTypes, result)
 		end
 	end
-	dpe()
-	dpb("Encode to buffer")
-	local ret = module.EncodeManual(unpack(dataTypes))
-	dpe()
-	dpe()
+	debugProfileEnd()
+	debugProfileBegin("Encode to buffer")
+	local ret = self:EncodeManual(unpack(dataTypes))
+	debugProfileEnd()
+	debugProfileEnd()
 	return ret
 end
 
--- Automatically convert variables to NetShrink data types and encode it to a buffer
-module.Encode = function(...)
-	return module.EncodeT(table.pack(...))
+-- Automatically convert variables to Data Compressor Module data types and encode it to a buffer
+function dataCompressor:Encode(...)
+	return self:EncodeT(table.pack(...))
 end
 
 Decode.Init()
-return module
+return dataCompressor
