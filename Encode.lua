@@ -1,33 +1,35 @@
-local module = {}
+local encodeModule = {}
 
-local p = pairs
-local ti = table.insert
-local b3ba = bit32.band
-local b3rs = bit32.rshift
-local b3bo = bit32.bor
-local bucr = buffer.create
-local buwu8 = buffer.writeu8
-local buwu16 = buffer.writeu16
-local buwi16 = buffer.writei16
-local buwu32 = buffer.writeu32
-local buwf32 = buffer.writef32
-local buwf64 = buffer.writef64
-local buws = buffer.writestring
-local bule = buffer.len
-local buco = buffer.copy
+local pairs = pairs
+local table_insert = table.insert
+local bit32_band = bit32.band
+local bit32_rshift = bit32.rshift
+local bit32_bor = bit32.bor
+local buffer_create = buffer.create
+local buffer_writeu8 = buffer.writeu8
+local buffer_writeu16 = buffer.writeu16
+local buffer_writei16 = buffer.writei16
+local buffer_writeu32 = buffer.writeu32
+local buffer_writef32 = buffer.writef32
+local buffer_writef64 = buffer.writef64
+local buffer_writestring = buffer.writestring
+local buffer_len = buffer.len
+local buffer_copy = buffer.copy
+local math_floor = math.floor
+local math_clamp = math.clamp
 
 local tbfFunctions = {
 	function(input)
 		local dat = input.Data
 		local size = #dat
-		local buf = bucr(size)
-		buws(buf,0,dat,size)
+		local buf = buffer_create(size)
+		buffer_writestring(buf, 0, dat, size)
 		return buf
-	end,
+	end, 
 }
 
 local function ToBuffer(input)
-	return tbfFunctions[input.DataType+1](input)
+	return tbfFunctions[input.DataType + 1](input)
 end
 
 local function toI16(num: number)
@@ -35,8 +37,8 @@ local function toI16(num: number)
 end
 
 local function BufByte(input)
-	local buf = bucr(1)
-	buwu8(buf,0,input)
+	local buf = buffer_create(1)
+	buffer_writeu8(buf, 0, input)
 	return buf
 end
 
@@ -44,33 +46,33 @@ local function MergeBuffers(...)
 	local offset = 0
 	local totalSize = 0
 	local list = {...}
-	for _,v in p(list) do
-		totalSize += bule(v)
+	for _, v in pairs(list) do
+		totalSize += buffer_len(v)
 	end
-	local buf = bucr(totalSize)
-	for _,v in p(list) do
-		local size = bule(v)
-		buco(buf,offset,v,0,size)
-		offset+=size
+	local buf = buffer_create(totalSize)
+	for _, v in pairs(list) do
+		local size = buffer_len(v)
+		buffer_copy(buf, offset, v, 0, size)
+		offset += size
 	end
 	return buf
 end
 
-module.EncodeVarLength = function(input: number)
+encodeModule.EncodeVarLength = function(input: number)
 	local bytes = {}
 	while true do
-		local x = b3ba(input, 0x7F)
-		input = b3rs(input, 7)
+		local x = bit32_band(input, 0x7F)
+		input = bit32_rshift(input, 7)
 		if input == 0 then
-			ti(bytes, b3bo(0x80, x))
+			table_insert(bytes, bit32_bor(0x80, x))
 			break
 		end
-		ti(bytes,x)
-		input-=1
+		table_insert(bytes, x)
+		input -= 1
 	end
-	local buf = bucr(#bytes)
-	for i,v in p(bytes) do
-		buwu8(buf,i-1,v)
+	local buf = buffer_create(#bytes)
+	for i, v in pairs(bytes) do
+		buffer_writeu8(buf, i - 1, v)
 	end
 	return buf
 end
@@ -81,70 +83,68 @@ local function OutlineMoment(v)
 	local off
 	local dat = v.Data
 	if v.comp then
-		buf = bucr(#dat*4+1)
-		func = buwf32
+		buf = buffer_create(#dat * 4 + 1)
+		func = buffer_writef32
 		off = 4
 	else
-		buf = bucr(#dat*8+1)
-		func = buwf64
+		buf = buffer_create(#dat * 8 + 1)
+		func = buffer_writef64
 		off = 8
 	end
-	buwu8(buf,0,(if v.comp then 1 else 0))
-	for i,d in pairs(dat) do
-		func(buf,(i-1)*off+1,d)
+	buffer_writeu8(buf, 0, (if v.comp then 1 else 0))
+	for i, d in pairs(dat) do
+		func(buf, (i - 1) * off + 1, d)
 	end
 	return buf
 end
 
-local mf = math.floor
-local mc = math.clamp
 local function toByte(num)
-	return mc(mf(num*255),0,255)
+	return math_clamp(math_floor(num * 255), 0, 255)
 end
 
 local functions
 functions = {
 	function(v) -- String
-		local varlen = module.EncodeVarLength(v.CompressMode==3 and buffer.len(v.Data) or #v.Data)
-		local buf = MergeBuffers(varlen,BufByte(v.CompressMode),(v.CompressMode==3 and v.Data or ToBuffer(v)))
+		local varlen = encodeModule.EncodeVarLength(v.CompressMode == 3 and buffer.len(v.Data) or #v.Data)
+		local buf = MergeBuffers(varlen, BufByte(v.CompressMode), (v.CompressMode == 3 and v.Data or ToBuffer(v)))
 		return buf
-	end,
+	end, 
 	function(v) -- Boolean5
-		local buf = bucr(1)
-		buwu8(buf,0,v.Value)
+		local buf = buffer_create(1)
+		buffer_writeu8(buf, 0, v.Value)
 		return buf
-	end,
+	end, 
 	function(v) -- UInt8
-		local buf = bucr(1)
-		buwu8(buf,0,v.Value)
+		local buf = buffer_create(1)
+		buffer_writeu8(buf, 0, v.Value)
 		return buf
-	end,
+	end, 
 	function(v) -- UInt16
-		local buf = bucr(2)
-		buwu16(buf,0,v.Value)
+		local buf = buffer_create(2)
+		buffer_writeu16(buf, 0, v.Value)
 		return buf
-	end,
+	end, 
 	function(v) -- UInt32
-		local buf = bucr(4)
-		buwu32(buf,0,v.Value)
+		local buf = buffer_create(4)
+		buffer_writeu32(buf, 0, v.Value)
 		return buf
-	end,
+	end, 
 	function(v) -- float
-		local buf = bucr(4)
-		buwf32(buf,0,v.Value)
+		local buf = buffer_create(4)
+		buffer_writef32(buf, 0, v.Value)
 		return buf
-	end,
+	end, 
 	function(v) -- double
-		local buf = bucr(8)
-		buwf64(buf,0,v.Value)
+		local buf = buffer_create(8)
+		buffer_writef64(buf, 0, v.Value)
 		return buf
-	end,
+	end, 
 	function(v) -- Vector2
 		return OutlineMoment(v)
-	end,
+	end, 
 	function(v) -- Vector3
 		return OutlineMoment(v)
-	end,
+	end, 
 
 	function(v) -- CFrame
 		--> roblox always stores cframes as 3 f32s for position and 9 i16s for rotation matrices
@@ -153,83 +153,83 @@ functions = {
 
 		local x, y, z, r00, r01, r02, r10, r11, r12, _, _, _ = unpack(v.Data)
 
-		local buf = bucr(24)
+		local buf = buffer_create(24)
 		--> position
-		buwf32(buf, 0, x); buwf32(buf, 4, y); buwf32(buf, 8, z)
+		buffer_writef32(buf, 0, x); buffer_writef32(buf, 4, y); buffer_writef32(buf, 8, z)
 
 		--> rotation vector 1
-		buwi16(buf, 12, toI16(r00)); buwi16(buf, 14, toI16(r01)); buwi16(buf, 16, toI16(r02))
+		buffer_writei16(buf, 12, toI16(r00)); buffer_writei16(buf, 14, toI16(r01)); buffer_writei16(buf, 16, toI16(r02))
 
 		--> rotation vector 2
-		buwi16(buf, 18, toI16(r10)); buwi16(buf, 20, toI16(r11)); buwi16(buf, 22, toI16(r12))
+		buffer_writei16(buf, 18, toI16(r10)); buffer_writei16(buf, 20, toI16(r11)); buffer_writei16(buf, 22, toI16(r12))
 
 		return buf
-	end,
+	end, 
 
 	function(v) -- CFrameEuler
 		return OutlineMoment(v)
-	end,
-	function(v , ident) -- Color3
+	end, 
+	function(v,  ident) -- Color3
 		local buf
 		local func
 		local off
 		local dat = v.Data
 		if v.comp then
-			buf = bucr(#dat*4+2)
-			func = buwf32
+			buf = buffer_create(#dat * 4 + 2)
+			func = buffer_writef32
 			off = 4
 		else
-			buf = bucr(#dat*8+2)
-			func = buwf64
+			buf = buffer_create(#dat * 8 + 2)
+			func = buffer_writef64
 			off = 8
 		end
 		local o = 1
 		if ident == false then
 			o = 0
 		else
-			buwu8(buf,0,(if v.Brick then 1 else 0))
+			buffer_writeu8(buf, 0, (if v.Brick then 1 else 0))
 		end
-		buwu8(buf,o,(if v.comp then 1 else 0))
-		for i,d in pairs(dat) do
-			func(buf,(i-1)*off+(o+1),d)
+		buffer_writeu8(buf, o, (if v.comp then 1 else 0))
+		for i, d in pairs(dat) do
+			func(buf, (i - 1) * off + (o + 1), d)
 		end
 		return buf
-	end,
+	end, 
 	function(v, ident) -- Color3b
-		local buf = bucr(4)
+		local buf = buffer_create(4)
 		local o = 1
 		if ident == false then
 			o = 0
 		else
-			buwu8(buf,0,(if v.Brick then 1 else 0))
+			buffer_writeu8(buf, 0, (if v.Brick then 1 else 0))
 		end
-		buwu8(buf,o,v.R)
-		buwu8(buf,o+1,v.G)
-		buwu8(buf,o+2,v.B)
+		buffer_writeu8(buf, o, v.R)
+		buffer_writeu8(buf, o + 1, v.G)
+		buffer_writeu8(buf, o + 2, v.B)
 		return buf
-	end,
+	end, 
 	function(v) -- Table
 		local objs = {}
 		local total = 0
-		for _,a in p(v.Value) do
-			local buf = functions[a.DataType+1](a)
-			total += bule(buf)
-			ti(objs, buf)
+		for _, a in pairs(v.Value) do
+			local buf = functions[a.DataType + 1](a)
+			total += buffer_len(buf)
+			table_insert(objs, buf)
 		end
-		local out = bucr(total)
+		local out = buffer_create(total)
 		total = 0
-		for _,v in p(objs) do
-			local len = bule(v)
-			buco(out,total,v,0,len)
+		for _, v in pairs(objs) do
+			local len = buffer_len(v)
+			buffer_copy(out, total, v, 0, len)
 			total += len
 		end
 		return out
-	end,
+	end, 
 	nil, -- DO NOT USE: End marker for tables.
 	nil, -- DO NOT USE: Handled elsewhere, begin marker for dictionaries.
 	function(v) -- nil
-		return bucr(0)
-	end,
+		return buffer_create(0)
+	end, 
 	function(v) -- ColorSequence
 		local func
 		local off
@@ -237,78 +237,78 @@ functions = {
 		local kp = v.Value.Keypoints
 		local count = #kp
 		if v.comp1 then
-			func = buwf32
+			func = buffer_writef32
 			off = 4
 		else
-			func = buwf64
+			func = buffer_writef64
 			off = 8
 		end
-		local sz = (if v.comp2 then 3 else off*3)*count+2
-		local varlen = module.EncodeVarLength(count)
-		local lensz = bule(varlen)
-		local buf = bucr(count*off+sz+lensz)
-		buco(buf,0,varlen,0,lensz)
-		buwu8(buf,lensz,(if v.comp1 then 1 else 0))
-		buwu8(buf,lensz+1,(if v.comp2 then 1 else 0))
-		local pos = lensz+2
-		for _,k in kp do
-			func(buf,pos,k.Time)
+		local sz = (if v.comp2 then 3 else off * 3) * count + 2
+		local varlen = encodeModule.EncodeVarLength(count)
+		local lensz = buffer_len(varlen)
+		local buf = buffer_create(count * off + sz + lensz)
+		buffer_copy(buf, 0, varlen, 0, lensz)
+		buffer_writeu8(buf, lensz, (if v.comp1 then 1 else 0))
+		buffer_writeu8(buf, lensz + 1, (if v.comp2 then 1 else 0))
+		local pos = lensz + 2
+		for _, k in kp do
+			func(buf, pos, k.Time)
 			pos += off
 		end
-		for _,k in kp do
+		for _, k in kp do
 			local c = k.Value
 			if v.comp2 then
-				buwu8(buf,pos,toByte(c.R))
-				buwu8(buf,pos+1,toByte(c.G))
-				buwu8(buf,pos+2,toByte(c.B))
+				buffer_writeu8(buf, pos, toByte(c.R))
+				buffer_writeu8(buf, pos + 1, toByte(c.G))
+				buffer_writeu8(buf, pos + 2, toByte(c.B))
 				pos += 3
 			else
 				-- looks dumb but should technically be faster
-				func(buf,pos,c.R)
+				func(buf, pos, c.R)
 				pos += off
-				func(buf,pos,c.G)
+				func(buf, pos, c.G)
 				pos += off
-				func(buf,pos,c.B)
+				func(buf, pos, c.B)
 				pos += off
 			end
 		end
 		return buf
-	end,
+	end, 
 	function(v) -- Vector2int16
-		local buf = bucr(4)
-		buwu16(buf,0,v.Data[1]+32768)
-		buwu16(buf,2,v.Data[2]+32768)
+		local buf = buffer_create(4)
+		buffer_writeu16(buf, 0, v.Data[1] + 32768)
+		buffer_writeu16(buf, 2, v.Data[2] + 32768)
 		return buf
-	end,
+	end, 
 	function(v) -- Vector3int16
-		local buf = bucr(6)
-		buwu16(buf,0,v.Data[1]+32768)
-		buwu16(buf,2,v.Data[2]+32768)
-		buwu16(buf,4,v.Data[3]+32768)
+		local buf = buffer_create(6)
+		buffer_writeu16(buf, 0, v.Data[1] + 32768)
+		buffer_writeu16(buf, 2, v.Data[2] + 32768)
+		buffer_writeu16(buf, 4, v.Data[3] + 32768)
 		return buf
-	end,
+	end, 
 	function(v) -- EnumItem
-		local buf = bucr(3)
-		buwu8(buf, 0, v.Data[1]) -- value
-		buwu16(buf, 1, v.Data[2]) -- enum idx
+		local buf = buffer_create(3)
+		buffer_writeu8(buf, 0, v.Data[1]) -- value
+		buffer_writeu16(buf, 1, v.Data[2]) -- enum idx
 		return buf
-	end,
+	end, 
 	function(v) -- UDim2
 		local dat = v.Data
-		local buf = bucr(#dat*4)
-		for i,d in pairs(dat) do
-			buwf32(buf,(i-1)*4,d)
+		local buf = buffer_create(#dat * 4)
+		for i, d in pairs(dat) do
+			buffer_writef32(buf, (i - 1) * 4, d)
 		end
 		return buf
-	end,
+	end, 
 	function(v) -- UDim
 		local dat = v.Data
-		local buf = bucr(#dat*4)
-		for i,d in pairs(dat) do
-			buwf32(buf,(i-1)*4,d)
+		local buf = buffer_create(#dat * 4)
+		for i, d in pairs(dat) do
+			buffer_writef32(buf, (i - 1) * 4, d)
 		end
 		return buf
-	end,
+	end, 
 	function(v) -- NumberSequence
 		local func
 		local off
@@ -316,51 +316,51 @@ functions = {
 		local kp = v.Value.Keypoints
 		local count = #kp
 		if v.comp1 then
-			func = buwf32
+			func = buffer_writef32
 			off = 4
 		else
-			func = buwf64
+			func = buffer_writef64
 			off = 8
 		end
-		local varlen = module.EncodeVarLength(count)
-		local lensz = bule(varlen)
-		local buf = bucr((count*off*3)+lensz+1)
-		buco(buf,0,varlen,0,lensz)
-		buwu8(buf,lensz,(if v.comp1 then 1 else 0))
-		local pos = lensz+1
-		for _,k in kp do
-			func(buf,pos,k.Time)
+		local varlen = encodeModule.EncodeVarLength(count)
+		local lensz = buffer_len(varlen)
+		local buf = buffer_create((count * off * 3) + lensz + 1)
+		buffer_copy(buf, 0, varlen, 0, lensz)
+		buffer_writeu8(buf, lensz, (if v.comp1 then 1 else 0))
+		local pos = lensz + 1
+		for _, k in kp do
+			func(buf, pos, k.Time)
 			pos += off
 		end
-		for _,k in kp do
-			func(buf,pos,k.Value)
+		for _, k in kp do
+			func(buf, pos, k.Value)
 			pos += off
-			func(buf,pos,k.Envelope)
+			func(buf, pos, k.Envelope)
 			pos += off
 		end
 		return buf
-	end,
+	end, 
 	function(v) -- NumberRange
 		local func
 		local off
 		local data = v.Value
 		if v.comp1 then
-			func = buwf32
+			func = buffer_writef32
 			off = 4
 		else
-			func = buwf64
+			func = buffer_writef64
 			off = 8
 		end
-		local buf = bucr(off*2+1)
-		buwu8(buf,0,(if v.comp1 then 1 else 0))
-		func(buf,1,data.Min)
-		func(buf,off+1,data.Max)
+		local buf = buffer_create(off * 2 + 1)
+		buffer_writeu8(buf, 0, (if v.comp1 then 1 else 0))
+		func(buf, 1, data.Min)
+		func(buf, off + 1, data.Max)
 		return buf
-	end,
+	end, 
 }
 
-module.Convert = function(v)
-	return functions[v.DataType+1](v)
+encodeModule.Convert = function(v)
+	return functions[v.DataType + 1](v)
 end
 
-return module
+return encodeModule
