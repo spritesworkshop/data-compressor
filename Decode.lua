@@ -24,7 +24,7 @@ local CFrame_fromEulerAnglesXYZ = CFrame.fromEulerAnglesXYZ
 local UDim2_new = UDim2.new
 local UDnew_new = UDim.new
 
-local EncodingService = game: GetService("EncodingService")
+local EncodingService = game:GetService("EncodingService")
 local Compression = require(script.Parent.Compression)
 
 local compressModeTargets = {
@@ -36,18 +36,18 @@ local compressModeTargets = {
 -- local enumMap: {[Enum]: number} = {} --> number  - > enum
 local enumMap = nil
 local enumMapFallback = {}
-for i, v in Enum: GetEnums() do
+for i, v in Enum:GetEnums() do
 	enumMapFallback[i] = v
 end
 
 decodeModule.TryLoadEnumMap = function()
 	if enumMap == nil then
-		local enumStrMap = script: FindFirstChild("EnumStringMap")
+		local enumStrMap = script:FindFirstChild("EnumStringMap")
 		if not enumStrMap then return false end
 
 		enumMap = {}
-		for _, str in enumStrMap.Value: split(" / ") do
-			local contents = str: split(" - ")
+		for _, str in enumStrMap.Value:split(" / ") do
+			local contents = str:split(" - ")
 			local isValid = pcall(function() assert(Enum[contents[2]]) end)
 
 			enumMap[tonumber(contents[1])] = (isValid and Enum[contents[2]] or "SERVER_ONLY_ENUM")
@@ -58,17 +58,17 @@ decodeModule.TryLoadEnumMap = function()
 end
 
 decodeModule.Init = function()
-	if game: GetService("RunService"): IsServer() then
+	if game:GetService("RunService"):IsServer() then
 		-- > we also store a stringvalue for the client to use, because the client and server have different enums
-		local strMap: string = "" 
+		local strMap:string = "" 
 		enumMap = {}
-		for i, v in Enum: GetEnums() do
+		for i, v in Enum:GetEnums() do
 			strMap ..= `{i} - {v} / `
 			enumMap[i] = v
 		end
-		strMap = strMap: sub(1, #strMap - 1) -- remove last  / 
+		strMap = strMap:sub(1, #strMap - 1) -- remove last  / 
 
-		if script: FindFirstChild("EnumStringMap") then return end
+		if script:FindFirstChild("EnumStringMap") then return end
 		local obj = Instance.new("StringValue")
 		obj.Value = strMap
 		obj.Name = "EnumStringMap"
@@ -109,7 +109,7 @@ local functions = {
 			if mode == 3 then
 				local strBuf = buffer_create(len)
 				buffer_copy(strBuf, 0, input, offset, len)
-				str = buffer.tostring(EncodingService: DecompressBuffer(strBuf, Enum.CompressionAlgorithm.Zstd))
+				str = buffer.tostring(EncodingService:DecompressBuffer(strBuf, Enum.CompressionAlgorithm.Zstd))
 			else
 				str = buffer_readstring(input, offset, len)
 				str = Compression[compressModeTargets[mode]].Decompress(str)
@@ -210,7 +210,7 @@ local functions = {
 
 		offset += 24
 
-		local r2 = Vector3.new(r00, r01, r02): Cross(Vector3.new(r10, r11, r12))
+		local r2 = Vector3.new(r00, r01, r02):Cross(Vector3.new(r10, r11, r12))
 
 		return CFrame_new(x, y, z, r00, r01, r02, r10, r11, r12, r2.X, r2.Y, r2.Z), offset
 	end, 
@@ -323,7 +323,7 @@ local functions = {
 		local enumIdx = buffer_readu16(input, offset)
 		offset += 2
 
-		return (enumMap or enumMapFallback)[enumIdx]: FromValue(value), offset
+		return (enumMap or enumMapFallback)[enumIdx]:FromValue(value), offset
 	end, 
 	function(input: buffer, offset: number) -- UDim2
 		local Xscale = buffer_readf32(input, offset)
