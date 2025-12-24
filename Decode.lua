@@ -46,8 +46,8 @@ decodeModule.TryLoadEnumMap = function()
 		if not enumStrMap then return false end
 
 		enumMap = {}
-		for _, str in enumStrMap.Value:split(" / ") do
-			local contents = str:split(" - ")
+		for _, str in enumStrMap.Value:split("/") do
+			local contents = str:split("-")
 			local isValid = pcall(function() assert(Enum[contents[2]]) end)
 
 			enumMap[tonumber(contents[1])] = (isValid and Enum[contents[2]] or "SERVER_ONLY_ENUM")
