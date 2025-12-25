@@ -6,7 +6,11 @@ exact same thing but i changed how it worked and a couple things
 DEFLATE/Zlib module not created by me, [see the original asset here](https://create.roblox.com/store/asset/5649237524)
 
 ## How to use
-You have to set it up yourself with the 4 source scripts.<br>
+You can build the project by running `build.py` file with Python. You can optionally set the output file name by providing it as an argument:<br>
+```bash
+python build.py Compressor
+```
+Alternatively, you can set it up yourself with the 4 source scripts.<br>
 NetShrink is the main script you will be requiring. The three other scripts should be children of the DCM module as demonstrated.<br>
 <img src="https://i.imgur.com/GJjvz2y.png"><br>
 
