@@ -6,6 +6,7 @@ exact same thing but i changed how it worked and a couple things
 DEFLATE/Zlib module not created by me, [see the original asset here](https://create.roblox.com/store/asset/5649237524)
 
 ## How to use
+Either download the rbxmx from the [Releases](https://github.com/spritesworkshop/data-compressor/releases) section, or set it up yourself.<br>
 You can build the project by running `build.py` file with Python. You can optionally set the output file name by providing it as an argument:<br>
 ```bash
 python build.py Compressor
