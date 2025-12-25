@@ -33,51 +33,10 @@ local compressModeTargets = {
 	"ZlibNative"
 }
 
--- local enumMap: {[Enum]: number} = {} --> number  - > enum
-local enumMap = nil
-local enumMapFallback = {}
+local UNKNOWN_ENUM = 'SERVER_ONLY_ENUM' -- for when enum is unknown, like server only enums
+local enumMap = {} :: { [number]: Enum }
 for i, v in Enum:GetEnums() do
-	enumMapFallback[i] = v
-end
-
-decodeModule.TryLoadEnumMap = function()
-	if enumMap == nil then
-		local enumStrMap = script:FindFirstChild("EnumStringMap")
-		if not enumStrMap then return false end
-
-		enumMap = {}
-		for _, str in enumStrMap.Value:split("/") do
-			local contents = str:split("-")
-			local isValid = pcall(function() assert(Enum[contents[2]]) end)
-
-			enumMap[tonumber(contents[1])] = (isValid and Enum[contents[2]] or "SERVER_ONLY_ENUM")
-		end
-	else
-		return true
-	end
-end
-
-decodeModule.Init = function()
-	if game:GetService("RunService"):IsServer() then
-		-- > we also store a stringvalue for the client to use, because the client and server have different enums
-		local strMap:string = "" 
-		enumMap = {}
-		for i, v in Enum:GetEnums() do
-			strMap ..= `{i} - {v} / `
-			enumMap[i] = v
-		end
-		strMap = strMap:sub(1, #strMap - 1) -- remove last  / 
-
-		if script:FindFirstChild("EnumStringMap") then return end
-		local obj = Instance.new("StringValue")
-		obj.Value = strMap
-		obj.Name = "EnumStringMap"
-
-		obj.Parent = script
-		return
-	end
-
-	decodeModule.TryLoadEnumMap()
+	enumMap[i] = v
 end
 
 decodeModule.DecodeVarLength = function(input: buffer, offset: number)
@@ -322,8 +281,10 @@ local functions = {
 
 		local enumIdx = buffer_readu16(input, offset)
 		offset += 2
-
-		return (enumMap or enumMapFallback)[enumIdx]:FromValue(value), offset
+		
+		local enum = enumMap[enumIdx]
+		
+		return enum and enum:FromValue(value) or UNKNOWN_ENUM, offset
 	end, 
 	function(input: buffer, offset: number) -- UDim2
 		local Xscale = buffer_readf32(input, offset)

@@ -106,15 +106,11 @@ function dataCompressor:Encrypt(input: buffer, key: number)
 	return input
 end
 
-local hasLoadedEnum = false
 -- Decodes a Data Compressor Module encoded buffer into the original variables
 function dataCompressor:Decode(input: buffer, asTable, key)
 	if key ~= nil and typeof(key) == "number" then
 		-- Decrypt buffer with key
 		input = self:Encrypt(input, key)
-	end
-	if not hasLoadedEnum then
-		hasLoadedEnum = Decode.TryLoadEnumMap()
 	end
 	local st = buffer_readstring(input, 0, 4)
 	assert(st == "NShd", "[Data Compressor Module] Cannot decode invalid buffer, expected 'NShd' header but got '"..st.."'")
@@ -940,5 +936,4 @@ function dataCompressor:Encode(...)
 	return self:EncodeT(table.pack(...))
 end
 
-Decode.Init()
 return dataCompressor
