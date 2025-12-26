@@ -276,15 +276,15 @@ local functions = {
 		return Vector3int16.new(X - 32768, Y - 32768, Z - 32768), offset
 	end, 
 	function(input: buffer, offset: number) -- EnumItem
-		local value = buffer_readu8(input, offset) 
-		offset += 1
+		local value = buffer_readu16(input, offset) 
+		offset += 2
 
-		local enumIdx = buffer_readu16(input, offset)
+		local enumIndex = buffer_readu16(input, offset)
 		offset += 2
 		
-		local enum = enumMap[enumIdx]
+		local enum = enumMap[enumIndex]
 		
-		return enum and enum:FromValue(value) or UNKNOWN_ENUM, offset
+		return (enum and enum:FromValue(value) or UNKNOWN_ENUM), offset
 	end, 
 	function(input: buffer, offset: number) -- UDim2
 		local Xscale = buffer_readf32(input, offset)

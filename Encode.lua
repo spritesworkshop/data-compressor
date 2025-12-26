@@ -288,9 +288,9 @@ functions = {
 		return buf
 	end, 
 	function(v) -- EnumItem
-		local buf = buffer_create(3)
-		buffer_writeu8(buf, 0, v.Data[1]) -- value
-		buffer_writeu16(buf, 1, v.Data[2]) -- enum idx
+		local buf = buffer_create(4)
+		buffer_writeu16(buf, 0, v.Data[1]) -- value
+		buffer_writeu16(buf, 2, v.Data[2]) -- enum index
 		return buf
 	end, 
 	function(v) -- UDim2
